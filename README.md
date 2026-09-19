@@ -33,6 +33,13 @@ MySQL 连接：`inkmill` / `inkmill` / `inkmill`（库名/用户/密码）
 1. **Workshop**：`name`, `site`, `notes`
 2. **Mill**：`workshopId`, `millCode`（同车间唯一）, `pigmentBase`, `bowlLiters`, `status`（`grinding` \| `idle` \| `wash`）
 3. **ViscositySample**：`millId`, `sampledAt`, `viscosityPaS`（须 &gt; 0，否则 HTTP 400）, `tempC`, `notes`
+   - 粘度测量值采用**更正链**而非覆盖修改：
+     - 原取样行的 `viscosityPaS` 与 `sampledAt` **一经创建不可修改**（PUT 仅可改研磨机、温度、备注）。
+     - 更正通过 `SampleCorrection` 追加：`sampleId`, `viscosityPaS`（&gt; 0）, `reason`（非空）, `correctedAt`。同一取样可有多条。
+     - **有效粘度（effectiveViscosityPaS）口径**：无更正时等于原始值；有更正时取最新一条更正——先按 `correctedAt` 倒序、再按 `id` 倒序。
+     - 列表与单条 GET 均返回 `originalViscosityPaS`、`effectiveViscosityPaS`、`correctionCount`，两处有效粘度口径一致；单条 GET 额外返回 `corrections` 历史。
+     - 追加更正接口：`POST /api/viscosity-samples/:id/corrections`，请求体 `{ "viscosityPaS": 12.1, "reason": "复测校准" }`；粘度 ≤ 0 或原因为空返回 400（中文提示）。
+     - 更正**不会**新增取样记录：仪表盘 `samplesLast24h` 始终只按取样行及其 `sampled_at` 计数。
 4. **GrindPass**：`millId`, `startedAt`, `passNo`（≥ 1）, `durationMin`（&gt; 0）, `mediaType`, `operatorName`
 5. **Dashboard**：`workshopTotal`, `grindingMillCount`, `samplesLast24h`, `passesLast7d`
 

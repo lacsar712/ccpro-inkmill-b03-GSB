@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from app.models.grind_pass import GrindPass
 from app.models.mill import Mill
+from app.models.sample_correction import SampleCorrection
 from app.models.user import User
 from app.models.viscosity_sample import ViscositySample
 from app.models.workshop import Workshop
@@ -43,15 +44,41 @@ def mill_json(row: Mill) -> dict:
     }
 
 
-def viscosity_sample_json(row: ViscositySample) -> dict:
+def latest_correction(row: ViscositySample) -> SampleCorrection | None:
+    """有效粘度对应的更正：按 corrected_at 再按 id 取最新一条。"""
+    if not row.corrections:
+        return None
+    return max(row.corrections, key=lambda c: (c.corrected_at, c.id))
+
+
+def sample_correction_json(row: SampleCorrection) -> dict:
     return {
+        "id": row.id,
+        "sampleId": row.sample_id,
+        "viscosityPaS": _num(row.viscosity_pa_s) or 0,
+        "reason": row.reason,
+        "correctedAt": dt_to_json(row.corrected_at),
+    }
+
+
+def viscosity_sample_json(row: ViscositySample, *, include_corrections: bool = False) -> dict:
+    original = _num(row.viscosity_pa_s) or 0
+    latest = latest_correction(row)
+    effective = _num(latest.viscosity_pa_s) if latest is not None else None
+    payload = {
         "id": row.id,
         "millId": row.mill_id,
         "sampledAt": dt_to_json(row.sampled_at),
-        "viscosityPaS": _num(row.viscosity_pa_s) or 0,
+        "viscosityPaS": original,
+        "originalViscosityPaS": original,
+        "effectiveViscosityPaS": effective if effective is not None else original,
+        "correctionCount": len(row.corrections),
         "tempC": _num(row.temp_c),
         "notes": row.notes,
     }
+    if include_corrections:
+        payload["corrections"] = [sample_correction_json(c) for c in row.corrections]
+    return payload
 
 
 def grind_pass_json(row: GrindPass) -> dict:

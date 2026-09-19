@@ -1,10 +1,14 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+
+if TYPE_CHECKING:
+    from app.models.sample_correction import SampleCorrection
 
 
 class ViscositySample(Base):
@@ -23,3 +27,9 @@ class ViscositySample(Base):
     )
 
     mill: Mapped["Mill"] = relationship("Mill", back_populates="viscosity_samples")
+    corrections: Mapped[list["SampleCorrection"]] = relationship(
+        "SampleCorrection",
+        back_populates="sample",
+        cascade="all, delete-orphan",
+        order_by="SampleCorrection.corrected_at.desc(), SampleCorrection.id.desc()",
+    )
