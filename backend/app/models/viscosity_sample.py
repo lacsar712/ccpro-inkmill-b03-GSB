@@ -23,3 +23,9 @@ class ViscositySample(Base):
     )
 
     mill: Mapped["Mill"] = relationship("Mill", back_populates="viscosity_samples")
+    corrections: Mapped[list["SampleCorrection"]] = relationship(
+        "SampleCorrection",
+        back_populates="sample",
+        cascade="all, delete-orphan",
+        order_by="SampleCorrection.corrected_at, SampleCorrection.id",
+    )

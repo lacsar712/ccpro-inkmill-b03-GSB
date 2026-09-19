@@ -25,13 +25,27 @@ export interface Mill {
   status: MillStatus;
 }
 
+export interface SampleCorrection {
+  id: number;
+  sampleId: number;
+  viscosityPaS: number;
+  reason: string;
+  correctedAt: string;
+}
+
 export interface ViscositySample {
   id: number;
   millId: number;
   sampledAt: string;
+  /** 原始取样粘度,永不被更正覆盖 */
   viscosityPaS: number;
+  originalViscosityPaS: number;
+  /** 有效粘度:取更正链(correctedAt, id)最新一条;无更正时等于原始值 */
+  effectiveViscosityPaS: number;
+  correctionCount: number;
   tempC: number | null;
   notes: string | null;
+  corrections: SampleCorrection[];
 }
 
 export interface GrindPass {

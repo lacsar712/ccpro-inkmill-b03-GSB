@@ -5,6 +5,7 @@ from app.auth import hash_password
 from app.database import SessionLocal
 from app.models.grind_pass import GrindPass
 from app.models.mill import Mill
+from app.models.sample_correction import SampleCorrection
 from app.models.user import User
 from app.models.viscosity_sample import ViscositySample
 from app.models.workshop import Workshop
@@ -59,29 +60,39 @@ def seed() -> None:
             db.flush()
 
             now = datetime.now()
+            sample1 = ViscositySample(
+                mill_id=m1.id,
+                sampled_at=now - timedelta(hours=2),
+                viscosity_pa_s=Decimal("12.5000"),
+                temp_c=Decimal("28.50"),
+                notes="首检合格",
+            )
+            sample2 = ViscositySample(
+                mill_id=m1.id,
+                sampled_at=now - timedelta(minutes=30),
+                viscosity_pa_s=Decimal("9.8000"),
+                temp_c=Decimal("29.00"),
+                notes="二检微调",
+            )
+            sample3 = ViscositySample(
+                mill_id=m2.id,
+                sampled_at=now - timedelta(days=1),
+                viscosity_pa_s=Decimal("15.2000"),
+                temp_c=Decimal("27.00"),
+                notes=None,
+            )
+            # 演示更正链:原始 9.8000 不变,追加更正后有效粘度为 9.5000。
+            correction1 = SampleCorrection(
+                sample=sample2,
+                viscosity_pa_s=Decimal("9.5000"),
+                reason="复测校准:首次读数受温度影响偏高",
+            )
             db.add_all(
                 [
-                    ViscositySample(
-                        mill_id=m1.id,
-                        sampled_at=now - timedelta(hours=2),
-                        viscosity_pa_s=Decimal("12.5000"),
-                        temp_c=Decimal("28.50"),
-                        notes="首检合格",
-                    ),
-                    ViscositySample(
-                        mill_id=m1.id,
-                        sampled_at=now - timedelta(minutes=30),
-                        viscosity_pa_s=Decimal("9.8000"),
-                        temp_c=Decimal("29.00"),
-                        notes="二检微调",
-                    ),
-                    ViscositySample(
-                        mill_id=m2.id,
-                        sampled_at=now - timedelta(days=1),
-                        viscosity_pa_s=Decimal("15.2000"),
-                        temp_c=Decimal("27.00"),
-                        notes=None,
-                    ),
+                    sample1,
+                    sample2,
+                    sample3,
+                    correction1,
                     GrindPass(
                         mill_id=m1.id,
                         started_at=now - timedelta(hours=3),

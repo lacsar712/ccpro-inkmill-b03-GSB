@@ -32,9 +32,27 @@ MySQL 连接：`inkmill` / `inkmill` / `inkmill`（库名/用户/密码）
 
 1. **Workshop**：`name`, `site`, `notes`
 2. **Mill**：`workshopId`, `millCode`（同车间唯一）, `pigmentBase`, `bowlLiters`, `status`（`grinding` \| `idle` \| `wash`）
-3. **ViscositySample**：`millId`, `sampledAt`, `viscosityPaS`（须 &gt; 0，否则 HTTP 400）, `tempC`, `notes`
-4. **GrindPass**：`millId`, `startedAt`, `passNo`（≥ 1）, `durationMin`（&gt; 0）, `mediaType`, `operatorName`
-5. **Dashboard**：`workshopTotal`, `grindingMillCount`, `samplesLast24h`, `passesLast7d`
+3. **ViscositySample**：`millId`, `sampledAt`, `viscosityPaS`（原始取样值，须 &gt; 0，否则 HTTP 400；**一经建立不被覆盖**）, `tempC`, `notes`
+4. **SampleCorrection（粘度更正链）**：`sampleId`, `viscosityPaS`（须 &gt; 0）, `reason`（非空）, `correctedAt`。同一取样可有多条，仅追加，绝不改写原取样行。
+5. **GrindPass**：`millId`, `startedAt`, `passNo`（≥ 1）, `durationMin`（&gt; 0）, `mediaType`, `operatorName`
+6. **Dashboard**：`workshopTotal`, `grindingMillCount`, `samplesLast24h`, `passesLast7d`
+
+### 有效粘度口径（更正链）
+
+粘度**不允许通过 `PUT /api/viscosity-samples/:id` 覆盖** `viscosityPaS` 来“假装更正”；`PUT` 仅维护研磨机、取样时间、温度、备注。更正只能追加：
+
+- `POST /api/viscosity-samples/:id/corrections`，请求体 `{ "viscosityPaS": <number>, "reason": "<非空>" }`。
+  - `viscosityPaS <= 0` 或缺失 → HTTP 400 `粘度(Pa·s)必须大于 0`；`reason` 为空白 → HTTP 400 `更正原因不能为空`。
+  - 成功后原取样行的 `viscosityPaS` 与 `sampledAt` 保持不变，返回该取样（HTTP 201）。
+- **有效粘度 `effectiveViscosityPaS`**：取该取样全部更正中“最新”的一条——先按 `correctedAt` 排序，相同再按 `id` 取较大者；没有任何更正时，有效粘度等于原始值 `originalViscosityPaS`。
+- 列表 `GET /api/viscosity-samples` 与单条 `GET /api/viscosity-samples/:id` **均返回同一口径**：
+  - `originalViscosityPaS`：原始取样粘度（= `viscosityPaS`，永不变）
+  - `effectiveViscosityPaS`：上述有效粘度（两处必须一致）
+  - `correctionCount`：更正条数
+  - `corrections`：更正历史数组（最新在前，含 `id/viscosityPaS/reason/correctedAt`）
+- 删除取样会级联删除其全部更正记录。
+
+> 仪表盘 `samplesLast24h` 始终只按 **取样行** 的 `sampled_at` 计数，**不统计更正记录**；无论追加多少条更正，该计数都不会增加。
 
 ## 快速启动（Docker）
 
